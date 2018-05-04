@@ -15,7 +15,6 @@ QT_END_NAMESPACE
 class Notificator: public QObject
 {
     Q_OBJECT
-
 public:
     /** Create a new notificator.
        @note Ownership of trayIcon is not transferred to this object.
@@ -26,12 +25,13 @@ public:
     // Message class
     enum Class
     {
-        Information,    /**< Informational message */
-        Warning,        /**< Notify user of potential problem */
-        Critical        /**< An error occurred */
+        Information,         /**< Informational message */
+        Warning,             /**< Notify user of potential problem */
+        Critical             /**< An error occurred */
     };
 
 public slots:
+
     /** Show notification message.
        @param[in] cls    general message class
        @param[in] title  title shown with message
