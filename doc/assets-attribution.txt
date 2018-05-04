@@ -1,3 +1,7 @@
+Code: src/strlcpy.h
+Author: Todd C. Miller <Todd.Miller@courtesan.com>
+License: ISC
+
 Icon: src/qt/res/icons/clock*.png, src/qt/res/icons/tx*.png,
       src/qt/res/src/*.svg
 Designer: Wladimir van der Laan
@@ -50,6 +54,6 @@ Designer: Crobbo (forum)
 Site: https://bitcointalk.org/index.php?topic=32273.0
 License: Public domain
 
-BlackCoin Logo
-Designer: Evan Zenker
+GRIF Logo
+Designer: Evan
 License: Creative Commons Attribution 4.0 International License
