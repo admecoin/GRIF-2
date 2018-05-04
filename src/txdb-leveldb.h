@@ -81,7 +81,7 @@ protected:
                 if (status.IsNotFound())
                     return false;
                 // Some unexpected error.
-                LogPrintf("LevelDB read failure: %s\n", status.ToString());
+                printf("LevelDB read failure: %s\n", status.ToString().c_str());
                 return false;
             }
         }
@@ -116,7 +116,7 @@ protected:
         }
         leveldb::Status status = pdb->Put(leveldb::WriteOptions(), ssKey.str(), ssValue.str());
         if (!status.ok()) {
-            LogPrintf("LevelDB write failure: %s\n", status.ToString());
+            printf("LevelDB write failure: %s\n", status.ToString().c_str());
             return false;
         }
         return true;
@@ -197,6 +197,10 @@ public:
     bool WriteHashBestChain(uint256 hashBestChain);
     bool ReadBestInvalidTrust(CBigNum& bnBestInvalidTrust);
     bool WriteBestInvalidTrust(CBigNum bnBestInvalidTrust);
+    bool ReadSyncCheckpoint(uint256& hashCheckpoint);
+    bool WriteSyncCheckpoint(uint256 hashCheckpoint);
+    bool ReadCheckpointPubKey(std::string& strPubKey);
+    bool WriteCheckpointPubKey(const std::string& strPubKey);
     bool LoadBlockIndex();
 private:
     bool LoadBlockIndexGuts();

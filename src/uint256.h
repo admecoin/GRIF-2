@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -198,7 +197,7 @@ public:
     {
         // prefix operator
         int i = 0;
-        while (--pn[i] == (uint32_t)-1 && i < WIDTH-1)
+        while (--pn[i] == -1 && i < WIDTH-1)
             i++;
         return *this;
     }
@@ -357,10 +356,9 @@ public:
         return sizeof(pn);
     }
 
-    uint64_t GetLow64() const
+    uint64_t Get64(int n=0) const
     {
-        assert(WIDTH >= 2);
-        return pn[0] | (uint64_t)pn[1] << 32;
+        return pn[2*n] | (uint64_t)pn[2*n+1] << 32;
     }
 
     unsigned int GetSerializeSize(int nType, int nVersion) const
@@ -378,23 +376,6 @@ public:
     void Unserialize(Stream& s, int nType, int nVersion)
     {
         s.read((char*)pn, sizeof(pn));
-    }
-
-    // Temporary for migration to opaque uint160/256
-    uint64_t GetCheapHash() const
-    {
-        return GetLow64();
-    }
-    void SetNull()
-    {
-        memset(pn, 0, sizeof(pn));
-    }
-    bool IsNull() const
-    {
-        for (int i = 0; i < WIDTH; i++)
-            if (pn[i] != 0)
-                return false;
-        return true;
     }
 
     friend class uint160;
@@ -653,39 +634,39 @@ inline int Testuint256AdHoc(std::vector<std::string> vArg)
     uint256 g(0);
 
 
-    LogPrintf("%s\n", g.ToString());
-    g--;  LogPrintf("g--\n");
-    LogPrintf("%s\n", g.ToString());
-    g--;  LogPrintf("g--\n");
-    LogPrintf("%s\n", g.ToString());
-    g++;  LogPrintf("g++\n");
-    LogPrintf("%s\n", g.ToString());
-    g++;  LogPrintf("g++\n");
-    LogPrintf("%s\n", g.ToString());
-    g++;  LogPrintf("g++\n");
-    LogPrintf("%s\n", g.ToString());
-    g++;  LogPrintf("g++\n");
-    LogPrintf("%s\n", g.ToString());
+    printf("%s\n", g.ToString().c_str());
+    g--;  printf("g--\n");
+    printf("%s\n", g.ToString().c_str());
+    g--;  printf("g--\n");
+    printf("%s\n", g.ToString().c_str());
+    g++;  printf("g++\n");
+    printf("%s\n", g.ToString().c_str());
+    g++;  printf("g++\n");
+    printf("%s\n", g.ToString().c_str());
+    g++;  printf("g++\n");
+    printf("%s\n", g.ToString().c_str());
+    g++;  printf("g++\n");
+    printf("%s\n", g.ToString().c_str());
 
 
 
     uint256 a(7);
-    LogPrintf("a=7\n");
-    LogPrintf("%s\n", a.ToString());
+    printf("a=7\n");
+    printf("%s\n", a.ToString().c_str());
 
     uint256 b;
-    LogPrintf("b undefined\n");
-    LogPrintf("%s\n", b.ToString());
+    printf("b undefined\n");
+    printf("%s\n", b.ToString().c_str());
     int c = 3;
 
     a = c;
     a.pn[3] = 15;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     uint256 k(c);
 
     a = 5;
     a.pn[3] = 15;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     b = 1;
     b <<= 52;
 
@@ -693,86 +674,86 @@ inline int Testuint256AdHoc(std::vector<std::string> vArg)
 
     a ^= 0x500;
 
-    LogPrintf("a %s\n", a.ToString());
+    printf("a %s\n", a.ToString().c_str());
 
     a = a | b | (uint256)0x1000;
 
 
-    LogPrintf("a %s\n", a.ToString());
-    LogPrintf("b %s\n", b.ToString());
+    printf("a %s\n", a.ToString().c_str());
+    printf("b %s\n", b.ToString().c_str());
 
     a = 0xfffffffe;
     a.pn[4] = 9;
 
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     a++;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     a++;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     a++;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     a++;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
 
     a--;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     a--;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     a--;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     uint256 d = a--;
-    LogPrintf("%s\n", d.ToString());
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", d.ToString().c_str());
+    printf("%s\n", a.ToString().c_str());
     a--;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
     a--;
-    LogPrintf("%s\n", a.ToString());
+    printf("%s\n", a.ToString().c_str());
 
     d = a;
 
-    LogPrintf("%s\n", d.ToString());
-    for (int i = uint256::WIDTH-1; i >= 0; i--) LogPrintf("%08x", d.pn[i]); LogPrintf("\n");
+    printf("%s\n", d.ToString().c_str());
+    for (int i = uint256::WIDTH-1; i >= 0; i--) printf("%08x", d.pn[i]); printf("\n");
 
     uint256 neg = d;
     neg = ~neg;
-    LogPrintf("%s\n", neg.ToString());
+    printf("%s\n", neg.ToString().c_str());
 
 
     uint256 e = uint256("0xABCDEF123abcdef12345678909832180000011111111");
-    LogPrintf("\n");
-    LogPrintf("%s\n", e.ToString());
+    printf("\n");
+    printf("%s\n", e.ToString().c_str());
 
 
-    LogPrintf("\n");
+    printf("\n");
     uint256 x1 = uint256("0xABCDEF123abcdef12345678909832180000011111111");
     uint256 x2;
-    LogPrintf("%s\n", x1.ToString());
+    printf("%s\n", x1.ToString().c_str());
     for (int i = 0; i < 270; i += 4)
     {
         x2 = x1 << i;
-        LogPrintf("%s\n", x2.ToString());
+        printf("%s\n", x2.ToString().c_str());
     }
 
-    LogPrintf("\n");
-    LogPrintf("%s\n", x1.ToString());
+    printf("\n");
+    printf("%s\n", x1.ToString().c_str());
     for (int i = 0; i < 270; i += 4)
     {
         x2 = x1;
         x2 >>= i;
-        LogPrintf("%s\n", x2.ToString());
+        printf("%s\n", x2.ToString().c_str());
     }
 
 
     for (int i = 0; i < 100; i++)
     {
         uint256 k = (~uint256(0) >> i);
-        LogPrintf("%s\n", k.ToString());
+        printf("%s\n", k.ToString().c_str());
     }
 
     for (int i = 0; i < 100; i++)
     {
         uint256 k = (~uint256(0) << i);
-        LogPrintf("%s\n", k.ToString());
+        printf("%s\n", k.ToString().c_str());
     }
 
     return (0);
@@ -780,7 +761,4 @@ inline int Testuint256AdHoc(std::vector<std::string> vArg)
 
 #endif
 
-// Temporary for migration to opaque uint160/256
-inline uint256 uint256S(const std::string &x) { return uint256(x); }
-
-#endif // BITCOIN_UINT256_H
+#endif

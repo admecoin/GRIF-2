@@ -5,34 +5,26 @@
 #ifndef BITCOIN_WALLET_H
 #define BITCOIN_WALLET_H
 
-#include "walletdb.h"
-
 #include <string>
 #include <vector>
 
 #include <stdlib.h>
 
-#include "crypter.h"
 #include "main.h"
 #include "key.h"
 #include "keystore.h"
 #include "script.h"
 #include "ui_interface.h"
 #include "util.h"
+#include "walletdb.h"
 
-// Settings
-extern int64_t nTransactionFee;
-extern int64_t nReserveBalance;
-extern int64_t nMinimumInputValue;
 extern bool fWalletUnlockStakingOnly;
 extern bool fConfChange;
-
 class CAccountingEntry;
-class CCoinControl;
 class CWalletTx;
 class CReserveKey;
 class COutput;
-class CWalletDB;
+class CCoinControl;
 
 /** (client) version numbers for particular wallet features */
 enum WalletFeature
@@ -75,7 +67,7 @@ public:
 /** A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
  * and provides the ability to create new transactions.
  */
-class CWallet : public CCryptoKeyStore, public CWalletInterface
+class CWallet : public CCryptoKeyStore
 {
 private:
     bool SelectCoinsForStaking(int64_t nTargetValue, unsigned int nSpendTime, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet) const;
@@ -150,9 +142,9 @@ public:
     // Generate a new key
     CPubKey GenerateNewKey();
     // Adds a key to the store, and saves it to disk.
-    bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
+    bool AddKey(const CKey& key);
     // Adds a key to the store, without saving it to disk (used by LoadWallet)
-    bool LoadKey(const CKey& key, const CPubKey &pubkey) { return CCryptoKeyStore::AddKeyPubKey(key, pubkey); }
+    bool LoadKey(const CKey& key) { return CCryptoKeyStore::AddKey(key); }
     // Load metadata (used by LoadWallet)
     bool LoadKeyMetadata(const CPubKey &pubkey, const CKeyMetadata &metadata);
 
@@ -188,9 +180,8 @@ public:
 
     void MarkDirty();
     bool AddToWallet(const CWalletTx& wtxIn);
-    void SyncTransaction(const CTransaction& tx, const CBlock* pblock, bool fConnect = true);
-    bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate);
-    void EraseFromWallet(const uint256 &hash);
+    bool AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate = false, bool fFindBlock = false);
+    bool EraseFromWallet(uint256 hash);
     void WalletUpdateSpent(const CTransaction& prevout, bool fBlock = false);
     int ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate = false);
     void ReacceptWalletTransactions();
@@ -204,7 +195,7 @@ public:
     bool CreateTransaction(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, const CCoinControl *coinControl=NULL);
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
-    uint64_t GetStakeWeight() const;
+    bool GetStakeWeight(const CKeyStore& keystore, uint64_t& nMinWeight, uint64_t& nMaxWeight, uint64_t& nWeight);
     bool CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, int64_t nFees, CTransaction& txNew, CKey& key);
 
     std::string SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, bool fAskFee=false);
@@ -216,7 +207,7 @@ public:
     void ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool);
     void KeepKey(int64_t nIndex);
     void ReturnKey(int64_t nIndex);
-    bool GetKeyFromPool(CPubKey &key);
+    bool GetKeyFromPool(CPubKey &key, bool fAllowReuse=true);
     int64_t GetOldestKeyPoolTime();
     void GetAllReserveKeys(std::set<CKeyID>& setAddress) const;
 
@@ -296,6 +287,8 @@ public:
 
     void UpdatedTransaction(const uint256 &hashTx);
 
+    void PrintWallet(const CBlock& block);
+
     void Inventory(const uint256 &hash)
     {
         {
@@ -311,6 +304,8 @@ public:
         AssertLockHeld(cs_wallet); // setKeyPool
         return setKeyPool.size();
     }
+
+    bool GetTransaction(const uint256 &hashTx, CWalletTx& wtx);
 
     bool SetDefaultKey(const CPubKey &vchPubKey);
 
@@ -353,7 +348,8 @@ public:
 
     ~CReserveKey()
     {
-        ReturnKey();
+        if (!fShutdown)
+            ReturnKey();
     }
 
     void ReturnKey();
@@ -735,7 +731,12 @@ public:
 
     std::string ToString() const
     {
-        return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->vout[i].nValue));
+        return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString().substr(0,10).c_str(), i, nDepth, FormatMoney(tx->vout[i].nValue).c_str());
+    }
+
+    void print() const
+    {
+        printf("%s\n", ToString().c_str());
     }
 };
 
@@ -880,5 +881,7 @@ public:
 private:
     std::vector<char> _ssExtra;
 };
+
+bool GetWalletFile(CWallet* pwallet, std::string &strWalletFileOut);
 
 #endif

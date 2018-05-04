@@ -3,15 +3,14 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "rpcserver.h"
 #include "main.h"
-#include "kernel.h"
-#include "checkpoints.h"
+#include "bitcoinrpc.h"
 
 using namespace json_spirit;
 using namespace std;
 
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, json_spirit::Object& entry);
+extern enum Checkpoints::CPMode CheckpointsMode;
 
 double GetDifficulty(const CBlockIndex* blockindex)
 {
@@ -46,7 +45,7 @@ double GetDifficulty(const CBlockIndex* blockindex)
 
 double GetPoWMHashPS()
 {
-    if (pindexBest->nHeight >= Params().LastPOWBlock())
+    if (pindexBest->nHeight >= LAST_POW_BLOCK)
         return 0;
 
     int nPoWInterval = 72;
@@ -84,38 +83,25 @@ double GetPoSKernelPS()
     {
         if (pindex->IsProofOfStake())
         {
-            if (pindexPrevStake)
-            {
-                dStakeKernelsTriedAvg += GetDifficulty(pindexPrevStake) * 4294967296.0;
-                nStakesTime += pindexPrevStake->nTime - pindex->nTime;
-                nStakesHandled++;
-            }
+            dStakeKernelsTriedAvg += GetDifficulty(pindex) * 4294967296.0;
+            nStakesTime += pindexPrevStake ? (pindexPrevStake->nTime - pindex->nTime) : 0;
             pindexPrevStake = pindex;
+            nStakesHandled++;
         }
 
         pindex = pindex->pprev;
     }
 
-    double result = 0;
-
-    if (nStakesTime)
-        result = dStakeKernelsTriedAvg / nStakesTime;
-
-    if (IsProtocolV2(nBestHeight))
-        result *= STAKE_TIMESTAMP_MASK + 1;
-
-    return result;
+    return nStakesTime ? dStakeKernelsTriedAvg / nStakesTime : 0;
 }
 
 Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool fPrintTransactionDetail)
 {
     Object result;
     result.push_back(Pair("hash", block.GetHash().GetHex()));
-    int confirmations = -1;
-    // Only report confirmations if the block is on the main chain
-    if (blockindex->IsInMainChain())
-        confirmations = nBestHeight - blockindex->nHeight + 1;
-    result.push_back(Pair("confirmations", confirmations));
+    CMerkleTx txGen(block.vtx[0]);
+    txGen.SetMerkleBranch(&block);
+    result.push_back(Pair("confirmations", (int)txGen.GetDepthInMainChain()));
     result.push_back(Pair("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION)));
     result.push_back(Pair("height", blockindex->nHeight));
     result.push_back(Pair("version", block.nVersion));
@@ -135,8 +121,8 @@ Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool fPri
     result.push_back(Pair("flags", strprintf("%s%s", blockindex->IsProofOfStake()? "proof-of-stake" : "proof-of-work", blockindex->GeneratedStakeModifier()? " stake-modifier": "")));
     result.push_back(Pair("proofhash", blockindex->hashProof.GetHex()));
     result.push_back(Pair("entropybit", (int)blockindex->GetStakeEntropyBit()));
-    result.push_back(Pair("modifier", strprintf("%016x", blockindex->nStakeModifier)));
-    result.push_back(Pair("modifierv2", blockindex->bnStakeModifierV2.GetHex()));
+    result.push_back(Pair("modifier", strprintf("%016"PRIx64, blockindex->nStakeModifier)));
+    result.push_back(Pair("modifierchecksum", strprintf("%08x", blockindex->nStakeModifierChecksum)));
     Array txinfo;
     BOOST_FOREACH (const CTransaction& tx, block.vtx)
     {
@@ -192,9 +178,23 @@ Value getdifficulty(const Array& params, bool fHelp)
     Object obj;
     obj.push_back(Pair("proof-of-work",        GetDifficulty()));
     obj.push_back(Pair("proof-of-stake",       GetDifficulty(GetLastBlockIndex(pindexBest, true))));
+    obj.push_back(Pair("search-interval",      (int)nLastCoinStakeSearchInterval));
     return obj;
 }
 
+
+Value settxfee(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 1 || AmountFromValue(params[0]) < MIN_TX_FEE)
+        throw runtime_error(
+            "settxfee <amount>\n"
+            "<amount> is a real and is rounded to the nearest 0.01");
+
+    nTransactionFee = AmountFromValue(params[0]);
+    nTransactionFee = (nTransactionFee / CENT) * CENT;  // round to cent
+
+    return true;
+}
 
 Value getrawmempool(const Array& params, bool fHelp)
 {
@@ -283,13 +283,25 @@ Value getcheckpoint(const Array& params, bool fHelp)
             "Show info of synchronized checkpoint.\n");
 
     Object result;
-    const CBlockIndex* pindexCheckpoint = Checkpoints::AutoSelectSyncCheckpoint();
+    CBlockIndex* pindexCheckpoint;
 
-    result.push_back(Pair("synccheckpoint", pindexCheckpoint->GetBlockHash().ToString().c_str()));
+    result.push_back(Pair("synccheckpoint", Checkpoints::hashSyncCheckpoint.ToString().c_str()));
+    pindexCheckpoint = mapBlockIndex[Checkpoints::hashSyncCheckpoint];
     result.push_back(Pair("height", pindexCheckpoint->nHeight));
     result.push_back(Pair("timestamp", DateTimeStrFormat(pindexCheckpoint->GetBlockTime()).c_str()));
 
-    result.push_back(Pair("policy", "rolling"));
+    // Check that the block satisfies synchronized checkpoint
+    if (CheckpointsMode == Checkpoints::STRICT)
+        result.push_back(Pair("policy", "strict"));
+
+    if (CheckpointsMode == Checkpoints::ADVISORY)
+        result.push_back(Pair("policy", "advisory"));
+
+    if (CheckpointsMode == Checkpoints::PERMISSIVE)
+        result.push_back(Pair("policy", "permissive"));
+
+    if (mapArgs.count("-checkpointkey"))
+        result.push_back(Pair("checkpointmaster", true));
 
     return result;
 }
